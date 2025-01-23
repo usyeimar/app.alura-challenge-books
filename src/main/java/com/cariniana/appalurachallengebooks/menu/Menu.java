@@ -1,5 +1,6 @@
 package com.cariniana.appalurachallengebooks.menu;
 
+import com.cariniana.appalurachallengebooks.dto.AuthorDTO;
 import com.cariniana.appalurachallengebooks.dto.BookDTO;
 import com.cariniana.appalurachallengebooks.dto.BookResponse;
 import com.cariniana.appalurachallengebooks.model.Author;
@@ -97,10 +98,13 @@ public class Menu {
             }
 
             books.forEach(book -> {
+
+                System.out.println("----- LIBRO -----");
                 System.out.println("Título: " + book.title());
-                System.out.println("Autor: " + book.authors().get(0).name());
+                System.out.println("Autor: " + book.authors().stream().map(AuthorDTO::name).collect(Collectors.joining(", ")));
                 System.out.println("Idioma: " + book.languages().get(0));
                 System.out.println("Descargas: " + book.downloadCount());
+                System.out.println("----- ----- -----");
 
                 boolean existingBook = bookRepository.existsBooksByTitle(book.title());
 

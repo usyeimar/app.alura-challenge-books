@@ -46,7 +46,6 @@ public class GutendexAPI {
         } catch (JsonSyntaxException e) {
             throw new RuntimeException("Error al deserializar el JSON: " + e.getMessage(), e);
         } catch (IOException | InterruptedException e) {
-            // Estas excepciones ya están declaradas en la firma del método
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Error inesperado: " + e.getMessage(), e);
