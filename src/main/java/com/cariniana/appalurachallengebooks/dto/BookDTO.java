@@ -9,7 +9,7 @@ import java.util.Map;
 public record BookDTO(
         int id,
         String title,
-        AuthorDTO author,
+        List<AuthorDTO> authors,
         List<TranslatorDTO> translators,
         List<String> subjects,
         List<String> bookshelves,

@@ -1,4 +1,4 @@
-package com.cariniana.appalurachallengebooks.services;
+package com.cariniana.appalurachallengebooks.services.api;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
@@ -9,7 +9,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-public class API {
+public class GutendexAPI {
+
+    private final static String GUTENDEX_API_URL = "https://gutendex.com/books/";
 
     /**
      * Fetch data from the given path.
@@ -21,7 +23,7 @@ public class API {
      *            * @throws IOException          if an I/O error occurs
      *            * @throws InterruptedException if the operation is interrupted
      */
-    public static <T> T fetch(String url, Class<T> clazz) throws IOException, InterruptedException {
+    private static <T> T fetch(String url, Class<T> clazz) throws IOException, InterruptedException {
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -32,7 +34,7 @@ public class API {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                throw new RuntimeException("Error al obtener datos de la API. Código de estado: "
+                throw new RuntimeException("Error al obtener datos de la GutendexAPI. Código de estado: "
                         + response.statusCode() + " Respuesta: " + response.body());
             }
 
@@ -50,4 +52,11 @@ public class API {
             throw new RuntimeException("Error inesperado: " + e.getMessage(), e);
         }
     }
+
+
+    public static <T> T findBookByTitle(String title, Class<T> clazz) throws IOException, InterruptedException {
+        return fetch(GUTENDEX_API_URL + "?search=" + title.replace(" ", "+"), clazz);
+    }
+
+
 }

@@ -6,22 +6,28 @@ import com.cariniana.appalurachallengebooks.model.Author;
 import com.cariniana.appalurachallengebooks.model.Book;
 import com.cariniana.appalurachallengebooks.repository.AuthorRepository;
 import com.cariniana.appalurachallengebooks.repository.BookRepository;
-import com.cariniana.appalurachallengebooks.services.API;
+import com.cariniana.appalurachallengebooks.services.api.GutendexAPI;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Scanner;
+import java.util.stream.Collectors;
 
 @Component
 public class Menu {
 
-    @Autowired
-    private AuthorRepository authorRepository;
+    private final AuthorRepository authorRepository;
+
+    private final BookRepository bookRepository;
 
     @Autowired
-    private BookRepository bookRepository;
+    public Menu(AuthorRepository authorRepository, BookRepository bookRepository) {
+        this.authorRepository = authorRepository;
+        this.bookRepository = bookRepository;
+    }
 
 
     public void showMenu() throws IOException, InterruptedException {
@@ -43,7 +49,7 @@ public class Menu {
                     """;
             System.out.println(menu);
 
-            int option = -1;
+            int option;
 
             try {
                 option = Integer.parseInt(scanner.nextLine());
@@ -67,7 +73,7 @@ public class Menu {
         }
     }
 
-    private void showSearchByTitleMenu(Scanner scanner) {
+    private void showSearchByTitleMenu(Scanner scanner) throws IOException, InterruptedException {
         System.out.println("""
                 BUSCAR LIBROS POR TÍTULO
                 
@@ -82,11 +88,36 @@ public class Menu {
         }
 
         try {
-            BookResponse response = API.fetch("https://gutendex.com/books/?search=" + bookName.replace(" ", "+"), BookResponse.class);
+            BookResponse response = GutendexAPI.findBookByTitle(bookName, BookResponse.class);
 
-            response.results().forEach(book -> System.out.println("Título: " + book.title()));
+            List<BookDTO> books = response.results();
+
+            if (books.isEmpty()) {
+                throw new RuntimeException("No se encontraron libros con ese título.");
+            }
+
+            books.forEach(book -> {
+                System.out.println("Título: " + book.title());
+                System.out.println("Autor: " + book.authors().get(0).name());
+                System.out.println("Idioma: " + book.languages().get(0));
+                System.out.println("Descargas: " + book.downloadCount());
+
+                boolean existingBook = bookRepository.existsBooksByTitle(book.title());
+
+                if (!existingBook) {
+                    Book bookEntity = new Book(book);
+                    if (!book.authors().isEmpty()) {
+                        book.authors().forEach(author -> {
+                            Author authorEntity = new Author(author.name(), author.birthYear(), author.deathYear(), bookEntity);
+                            bookEntity.addAuthor(authorEntity);
+                        });
+                    }
+
+                    bookRepository.save(bookEntity);
+                }
+            });
         } catch (Throwable e) {
-            System.out.println("No se encontraron libros con ese título");
+            System.out.println("Error al buscar libros: " + e.getMessage());
         }
 
     }
@@ -106,19 +137,18 @@ public class Menu {
         }
 
         try {
-            // Utilizando el repositorio para buscar autores por nombre
             List<Author> authors = authorRepository.findByNameContainingIgnoreCase((authorName));
 
             if (authors.isEmpty()) {
-                System.out.println("No se encontraron autores con ese nombre.");
-                return;
+                throw new RuntimeException("No se encontraron autores con ese nombre.");
             }
-//
-//            authors.forEach(author -> {
-//                System.out.println("Autor: " + author.getName());
-//                // Supongamos que tienes una relación entre Autor y Libros
-////                author.getBooks().forEach(book -> System.out.println(" - Libro: " + book.getTitle()));
-//            });
+
+            authors.forEach(author -> {
+                System.out.println("Autor: " + author.getName());
+                Optional<Book> book = Optional.ofNullable(author.getBook());
+                book.ifPresent(value -> System.out.println("Libro: " + value.getTitle()));
+            });
+
         } catch (Exception e) {
             System.out.println("Error al buscar autores: " + e.getMessage());
         }
@@ -127,12 +157,17 @@ public class Menu {
     private void showListAuthorsMenu() {
         System.out.println("LISTANDO AUTORES REGISTRADOS...");
 
-//        try {
-//            List<AuthorDTO> authors = authorRepository.findAll();
-//            authors.forEach(author -> System.out.println("Autor: " + author.getName()));
-//        } catch (Exception e) {
-//            System.out.println("Error al listar autores: " + e.getMessage());
-//        }
+        try {
+            List<Author> authors = authorRepository.findAll();
+
+            if (authors.isEmpty()) {
+                throw new RuntimeException("No hay autores registrados.");
+            }
+
+            authors.forEach(author -> System.out.println("Autor: " + author.getName()));
+        } catch (Exception e) {
+            System.out.println("Error al listar autores: " + e.getMessage());
+        }
     }
 
     private void showListAuthorsByYearMenu(Scanner scanner) {
@@ -142,38 +177,40 @@ public class Menu {
                 Ingrese el año:
                 """);
 
-//        String yearInput = scanner.nextLine().trim();
-//
-//        if (yearInput.isEmpty()) {
-//            showEmptyYearMessage();
-//            return;
-//        }
-//
-//        try {
-//            int year = Integer.parseInt(yearInput);
-//            // Supongamos que tienes un método en AuthorRepository para esto
-//            List<AuthorDTO> authors = authorRepository.findByBirthYearBeforeAndDeathYearAfter(year, year);
-//
-//            if (authors.isEmpty()) {
-//                System.out.println("No hay autores vivos en el año " + year);
-//                return;
-//            }
-//
-//            authors.forEach(author -> System.out.println("Autor: " + author.getName()));
-//        } catch (NumberFormatException e) {
-//            System.out.println("Año inválido.");
-//        } catch (Exception e) {
-//            System.out.println("Error al listar autores: " + e.getMessage());
-//        }
+        String yearInput = scanner.nextLine().trim();
+
+        if (yearInput.isEmpty()) {
+            showEmptyYearMessage();
+        }
+
+        try {
+            int year = Integer.parseInt(yearInput);
+            List<Author> authors = authorRepository.findByBirthYearBeforeAndDeathYearAfter(year, year);
+
+            if (authors.isEmpty()) {
+                throw new RuntimeException("No hay autores vivos en el año " + year);
+            }
+
+            authors.forEach(author -> System.out.println("Autor: " + author.getName()));
+        } catch (NumberFormatException e) {
+            System.out.println("Año inválido.");
+        } catch (Exception e) {
+            System.out.println("Error al listar autores: " + e.getMessage());
+        }
     }
 
     private void showListBooksByLanguageMenu(Scanner scanner) {
-        System.out.println("""
-                LISTAR LIBROS POR IDIOMA
-                
-                Ingrese el idioma:
-                """);
+        List<String> languages = bookRepository.getDistinctByLanguageList();
+        if (languages.isEmpty()) {
+            System.out.println("No hay idiomas registrados.");
+            return;
+        }
+        System.out.println("Idimas disponibles: ");
+        for (int i = 0; i < languages.size(); i++) {
+            System.out.println(i + 1 + ". " + languages.get(i));
+        }
 
+        System.out.println("\nIngrese el idioma:");
         String language = scanner.nextLine().trim();
 
         if (language.isEmpty()) {
@@ -182,15 +219,18 @@ public class Menu {
         }
 
         try {
-            // Supongamos que tienes un método en BookRepository para esto
             List<Book> books = bookRepository.findByLanguageIgnoreCase(language);
 
             if (books.isEmpty()) {
-                System.out.println("No se encontraron libros en el idioma " + language);
-                return;
+                throw new RuntimeException("No hay libros en ese idioma.");
             }
 
-//            books.forEach(book -> System.out.println("Título: " + book.getTitle()));
+            System.out.println("Libros en " + language + ":");
+            books.forEach(book -> {
+                System.out.println("Título: " + book.getTitle());
+                System.out.println("Descargas: " + book.getDownloadCount());
+                System.out.println("Lenguaje: " + book.getLanguage());
+            });
         } catch (Exception e) {
             System.out.println("Error al listar libros: " + e.getMessage());
         }

@@ -2,6 +2,7 @@ package com.cariniana.appalurachallengebooks.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.List;
@@ -10,15 +11,37 @@ import java.util.List;
 @Table(name = "authors")
 @Getter
 @Setter
+@NoArgsConstructor
 public class Author {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     private String name;
     private Integer birthYear;
     private Integer deathYear;
 
-    @OneToMany(mappedBy = "authors", fetch = FetchType.LAZY)
-    private List<Book> books;
+    @ManyToOne
+    private Book book;
+
+
+    public Author(String name, Integer birthYear, Integer deathYear, Book book) {
+        this.name = name;
+        this.birthYear = birthYear;
+        this.deathYear = deathYear;
+        this.book = book;
+    }
+
+
+    @Override
+    public String toString() {
+        return "Author{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", birthYear=" + birthYear +
+                ", deathYear=" + deathYear +
+                '}';
+    }
+
 
 }
